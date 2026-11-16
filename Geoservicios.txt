@@ -1,0 +1,111 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+PS C:\Users\User> Docker Desktop
+docker: unknown command: docker Desktop
+
+Run 'docker --help' for more information
+PS C:\Users\User> docker version
+Client:
+ Version:           29.9.2
+ API version:       1.56
+ Go version:        go1.26.10
+ Git commit:        a82e528
+ Built:             Tue Oct 20 19:44:07 2026
+ OS/Arch:           windows/amd64
+ Context:           desktop-linux
+
+Server: Docker Desktop 4.96.3 (244472)
+ Engine:
+  Version:          29.9.2
+  API version:      1.56 (minimum version 1.40)
+  Go version:       go1.26.10
+  Git commit:       0367cbe
+  Built:            Tue Oct 20 18:45:02 2026
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          v2.4.2
+  GitCommit:        b7a25261e029d68978bbf290df0a62fc819b3c51
+ runc:
+  Version:          1.5.2
+  GitCommit:        v1.5.2-0-g29dd3dc2
+ docker-init:
+  Version:          0.19.0
+  GitCommit:        de40ad0
+PS C:\Users\User> docker ps -a
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+PS C:\Users\User> New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\curso-sig"
+
+
+    Directorio: C:\Users\User
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----     24/10/2026  12:56 p. m.                curso-sig
+
+
+PS C:\Users\User> Set-Location "$env:USERPROFILE\curso-sig"
+PS C:\Users\User\curso-sig> notepad docker-compose.yml
+PS C:\Users\User\curso-sig> Get-Content .\docker-compose.yml
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: geodatos
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+PS C:\Users\User\curso-sig> docker compose up -d
+[+] up 21/22
+ ✔ Image postgis/postgis:16-3.4  Pulled                                                                                                                                                                     25.5s
+ ✔ Volume curso-sig_pgdata       Created                                                                                                                                                                     0.0s
+ ✔ Network curso-sig_default     Created                                                                                                                                                                     0.1s
+ - Container curso-sig-postgis-1 Starting                                                                                                                                                                    3.6s
+Error response from daemon: ports are not available: exposing port TCP 127.0.0.1:5432 -> 127.0.0.1:0: listen tcp4 127.0.0.1:5432: bind: An attempt was made to access a socket in a way forbidden by its access permissions.
+
+What's next:
+    Debug this Compose error with Gordon → docker ai "help me fix this compose error"
+PS C:\Users\User\curso-sig> notepad docker-compose.yml
+PS C:\Users\User\curso-sig> docker compose up -d
+[+] up 1/1
+ ✔ Container curso-sig-postgis-1 Started                                                                                                                                                                     0.5s
+PS C:\Users\User\curso-sig> docker compose ps
+NAME                  IMAGE                    COMMAND                  SERVICE   CREATED          STATUS          PORTS
+curso-sig-postgis-1   postgis/postgis:16-3.4   "docker-entrypoint.s…"   postgis   45 seconds ago   Up 44 seconds   127.0.0.1:5433->5433/tcp
+PS C:\Users\User\curso-sig> docker compose exec postgis psql -U postgres -d geodatos -c "SELECT version();"
+                                                           version
+-----------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 16.4 (Debian 16.4-1.pgdg110+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 10.2.1-6) 10.2.1 20210110, 64-bit
+(1 row)
+
+PS C:\Users\User\curso-sig> docker compose exec postgis psql -U postgres -d geodatos -c "SELECT PostGIS_Version();"
+            postgis_version
+---------------------------------------
+ 3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1
+(1 row)
+
+PS C:\Users\User\curso-sig> notepad docker-compose.yml
+PS C:\Users\User\curso-sig> docker compose up -d
+[+] up 1/1
+ ✔ Container curso-sig-postgis-1 Started                                                                                                                                                                     1.0s
+PS C:\Users\User\curso-sig> docker compose ps
+NAME                  IMAGE                    COMMAND                  SERVICE   CREATED         STATUS         PORTS
+curso-sig-postgis-1   postgis/postgis:16-3.4   "docker-entrypoint.s…"   postgis   7 seconds ago   Up 6 seconds   127.0.0.1:5433->5432/tcp
+PS C:\Users\User\curso-sig> Set-Location "$env:USERPROFILE\curso-sig"
+PS C:\Users\User\curso-sig> Copy-Item docker-compose.yml docker-compose.respaldo.yml
+PS C:\Users\User\curso-sig> notepad docker-compose.yml
+PS C:\Users\User\curso-sig> docker compose up -d
+[+] up 30/30
+ ✔ Image docker.osgeo.org/geoserver:2.28.6 Pulled                                                                                                                                                           68.4s
+ ✔ Container curso-sig-postgis-1           Running                                                                                                                                                           0.0s
+ ✔ Volume curso-sig_geoserver_data         Created                                                                                                                                                           0.1s
+ ✔ Container curso-sig-geoserver-1         Started                                                                                                                                                           4.9s
+PS C:\Users\User\curso-sig>

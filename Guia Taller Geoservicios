@@ -1,0 +1,402 @@
+============================================================
+GUIA RESUMIDA DEL TALLER SIG
+Docker + PostGIS + QGIS + GeoServer + WMS
+============================================================
+
+OBJETIVO
+Guardar departamentos y municipios en PostGIS, publicarlos
+en GeoServer y consultar el servicio WMS desde QGIS.
+
+PROGRAMAS
+- Docker Desktop: ejecuta PostGIS y GeoServer.
+- PowerShell: permite ejecutar los comandos.
+- Bloc de notas: permite editar docker-compose.yml.
+- QGIS: abre los shapefiles, los importa y consulta el WMS.
+- Chrome o Edge: permite administrar GeoServer.
+
+Esta guia resume la configuracion utilizada en la practica.
+Docker Desktop y QGIS deben estar instalados.
+Si ya completaste un paso, revisalo sin repetir importaciones.
+No borres los volumenes de Docker: contienen tus datos.
+
+============================================================
+1. ABRIR DOCKER Y PREPARAR LA CARPETA
+============================================================
+
+PROGRAMA: Docker Desktop.
+Abrir Inicio de Windows, buscar Docker Desktop y abrirlo.
+Esperar a que el motor funcione y dejar el programa encendido.
+
+PROGRAMA: PowerShell.
+Abrir Inicio, buscar PowerShell y abrirlo.
+Pegar cada comando por separado y presionar Enter:
+
+docker version
+
+El resultado debe mostrar Client y Server.
+
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\curso-sig"
+
+Set-Location "$env:USERPROFILE\curso-sig"
+
+La carpeta utilizada fue C:\Users\User\curso-sig.
+No escribir "Docker Desktop" como comando en PowerShell.
+
+============================================================
+2. CONFIGURAR POSTGIS Y GEOSERVER
+============================================================
+
+PROGRAMA: PowerShell y Bloc de notas.
+Si ya tienes docker-compose.yml, guardar una copia antes de editar.
+Abrir el archivo desde PowerShell:
+
+notepad docker-compose.yml
+
+En el Bloc de notas, pegar esta configuracion FINAL completa.
+Incluye ambos servicios; durante la practica se agrego primero
+PostGIS y despues GeoServer. Conservar la misma carpeta y pgdata
+permite reutilizar las tablas que ya importaste.
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: geodatos
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  geoserver:
+    image: docker.osgeo.org/geoserver:2.28.6
+    environment:
+      GEOSERVER_ADMIN_USER: admin
+      GEOSERVER_ADMIN_PASSWORD: geoserver
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - geoserver_data:/opt/geoserver_data
+    depends_on:
+      - postgis
+
+volumes:
+  pgdata:
+  geoserver_data:
+
+Guardar con Ctrl + S y cerrar el Bloc de notas.
+El nombre debe ser docker-compose.yml, sin terminar en .txt.
+Las contrasenas indicadas corresponden a esta practica local.
+
+============================================================
+3. INICIAR Y COMPROBAR LOS SERVICIOS
+============================================================
+
+PROGRAMA: PowerShell, dentro de la carpeta curso-sig.
+Ejecutar:
+
+docker compose up -d
+
+Esperar a que termine. Luego ejecutar:
+
+docker compose ps
+
+Deben aparecer postgis y geoserver con estado Up.
+Los puertos deben verse asi:
+- PostGIS: 127.0.0.1:5433->5432/tcp
+- GeoServer: 127.0.0.1:8080->8080/tcp
+
+Comprobar PostgreSQL:
+
+docker compose exec postgis psql -U postgres -d geodatos -c "SELECT version();"
+
+Comprobar PostGIS:
+
+docker compose exec postgis psql -U postgres -d geodatos -c "SELECT PostGIS_Version();"
+
+En la practica respondieron PostgreSQL 16.4 y PostGIS 3.4.
+Si algun comando falla, revisar el mensaje antes de continuar.
+
+============================================================
+4. CONECTAR QGIS A POSTGIS
+============================================================
+
+PROGRAMA: QGIS Desktop.
+1. En el panel Navegador, buscar PostgreSQL.
+2. Clic derecho en PostgreSQL > Conexion nueva.
+3. Completar:
+
+Nombre: Docker_geodatos
+Servicio: vacio
+Anfitrion: 127.0.0.1
+Puerto: 5433
+Base de datos: geodatos
+Modo SSL: deshabilitar para esta practica local
+Session ROLE: vacio
+Autenticacion > Basica:
+  Usuario: postgres
+  Contrasena: postgres
+
+4. Pulsar Probar conexion.
+5. Si aparece el mensaje verde de exito, pulsar Aceptar.
+
+Usar Docker_geodatos, no la conexion anterior prueba_sig.
+
+============================================================
+5. ABRIR Y REVISAR LOS SHAPEFILES
+============================================================
+
+PROGRAMA: QGIS Desktop.
+1. En el Navegador, localizar la carpeta de datos del curso.
+   En esta practica: C:\Users\User\servicios_sig_y_websites\data
+2. Abrir departamentos.shp y municipios.shp con doble clic.
+   Si ya estan en el panel Capas, no volver a agregarlos.
+3. Mantener juntos los archivos .shp, .shx, .dbf y .prj,
+   ademas de .cpg si existe.
+4. Clic derecho en cada capa > Propiedades > Informacion.
+
+Datos revisados:
+- Departamentos: 33 objetos, MultiPolygon, EPSG:4686 MAGNA-SIRGAS.
+- Municipios: SRC original EPSG:4326 WGS 84.
+
+Conservar el SRC de cada archivo; no cambiarlos solo para igualarlos.
+
+============================================================
+6. IMPORTAR LAS DOS CAPAS A POSTGIS
+============================================================
+
+PROGRAMA: QGIS Desktop.
+1. Abrir Database o Base de datos > Administrador de BBDD.
+2. Desplegar PostgreSQL > Docker_geodatos > public.
+3. Seleccionar public y pulsar Importar capa/archivo.
+4. Configurar:
+
+Entrada: departamentos
+Esquema: public
+Tabla: departamentos
+Columna de geometria: marcar y dejar geom
+Crear indice espacial: marcar
+
+5. Dejar Clave primaria con la configuracion predeterminada.
+6. Dejar desmarcadas la importacion de solo seleccionados
+   y la sustitucion de la tabla de destino.
+7. Conservar EPSG:4686 y pulsar Aceptar.
+8. Repetir el proceso con Entrada y Tabla municipios,
+   conservando EPSG:4326.
+9. Pulsar Actualizar y revisar cada tabla en la pestana Info.
+
+Resultados registrados:
+- public.departamentos: 33 filas contadas, geom, MULTIPOLYGON,
+  EPSG:4686.
+- public.municipios: 1121 filas estimadas, geom, MULTIPOLYGON,
+  EPSG:4326. El numero mostrado era una estimacion.
+
+Si las tablas ya existen, no volver a importarlas ni sustituirlas.
+
+============================================================
+7. ABRIR GEOSERVER Y CREAR EL ESPACIO DE TRABAJO
+============================================================
+
+PROGRAMA: Chrome o Edge.
+Abrir:
+
+http://localhost:8080/geoserver
+
+Si acaba de arrancar, esperar un momento y actualizar.
+Ingresar con las credenciales iniciales de la practica:
+Usuario: admin
+Contrasena: geoserver
+
+1. Menu izquierdo > Datos > Espacios de trabajo.
+2. Agregar nuevo espacio de trabajo.
+3. Completar:
+   Nombre: curso
+   URI del espacio de nombres: http://example.org/curso
+4. Dejar las casillas de espacio por defecto y aislado desmarcadas.
+5. Guardar.
+
+La URI es un identificador; no necesitas abrirla en el navegador.
+Si curso ya existe, utilizarlo en los siguientes pasos.
+
+============================================================
+8. CONECTAR GEOSERVER CON POSTGIS
+============================================================
+
+PROGRAMA: navegador, dentro de GeoServer.
+1. Almacenes de datos > Agregar nuevo almacen.
+2. Elegir PostGIS - Base de datos PostGIS.
+3. Completar:
+
+Espacio de trabajo: curso
+Nombre del origen de datos: geodatos_postgis
+Habilitado: marcado
+Anfitrion: postgis
+Puerto: 5432
+Base de datos: geodatos
+Esquema: public
+Usuario: postgres
+Contrasena: postgres
+
+4. Dejar las demas opciones predeterminadas y Guardar.
+5. Deben aparecer departamentos y municipios para publicar.
+
+IMPORTANTE:
+- QGIS en Windows usa 127.0.0.1 y puerto 5433.
+- GeoServer en Docker usa postgis y puerto 5432.
+- Ambas conexiones apuntan a la misma base geodatos.
+
+============================================================
+9. PUBLICAR DEPARTAMENTOS Y MUNICIPIOS
+============================================================
+
+PROGRAMA: navegador, dentro de GeoServer.
+1. En la lista de tablas, pulsar Publicacion junto a departamentos.
+2. En Datos, conservar el nombre departamentos.
+3. Comprobar el SRC nativo y usar SRS declarado EPSG:4686.
+4. En Encuadres > Encuadre nativo, pulsar Calcular desde los datos.
+5. En el cuadro Lat/Lon, pulsar Calcular desde el cuadro nativo.
+6. Bajar hasta el final y Guardar.
+7. Entrar a Capas > Agregar nuevo recurso.
+8. Seleccionar curso:geodatos_postgis y publicar municipios.
+9. Repetir el proceso usando EPSG:4326 para municipios.
+10. Calcular ambos encuadres y Guardar.
+
+Las capas deben aparecer como curso:departamentos y curso:municipios.
+Si ya estan publicadas, revisarlas desde Capas sin crearlas otra vez.
+Al publicarlas ya se ofrecen mediante WMS; no hay otra conversion.
+
+============================================================
+10. CREAR Y APLICAR EL ESTILO
+============================================================
+
+PROGRAMA: QGIS Desktop.
+1. Clic derecho sobre departamentos > Propiedades > Simbologia.
+2. Seleccionar un estilo; en la practica se eligio borde rojo
+   sin relleno. Pulsar Aplicar.
+3. Abajo a la izquierda: Estilo > Guardar estilo.
+4. Elegir formato SLD y guardar como departamentos.sld.
+   No usar Guardar simbolo ni guardar como QML para este paso.
+
+PROGRAMA: navegador, dentro de GeoServer.
+5. Entrar a Estilos > Agregar un nuevo estilo.
+6. Nombre: departamentos_rojo. Espacio: curso. Formato: SLD.
+7. Seleccionar departamentos.sld y pulsar Cargar o Upload.
+8. Validar el contenido; si no hay errores, Guardar.
+9. Capas > curso:departamentos > Publicacion.
+10. En Estilo por defecto, elegir departamentos_rojo y Guardar.
+
+Para personalizar municipios se puede repetir el proceso usando
+municipios.sld y un nombre de estilo diferente.
+
+============================================================
+11. PROBAR LA PREVISUALIZACION
+============================================================
+
+PROGRAMA: navegador, dentro de GeoServer.
+1. Menu izquierdo > Datos > Previsualizacion de capas.
+2. Buscar departamentos y pulsar OpenLayers en su fila.
+3. Comprobar que se dibuje el mapa con el estilo elegido.
+4. Repetir con municipios.
+
+La opcion WMS del menu Servicios abre la configuracion general.
+Para ver los mapas, utilizar Previsualizacion de capas.
+
+============================================================
+12. USAR EL GEOSERVICIO DESDE QGIS
+============================================================
+
+PROGRAMA: QGIS Desktop.
+1. En el panel Navegador, buscar WMS/WMTS.
+2. Clic derecho > Conexion nueva.
+3. Completar:
+
+Nombre: Mi_geoservicio
+URL: http://localhost:8080/geoserver/curso/wms
+Autenticacion: Sin autenticacion
+
+4. Dejar los campos de Basica vacios. Aqui no se utiliza la
+   contrasena de PostgreSQL. Dejar las demas opciones como estan.
+5. Pulsar Aceptar.
+6. Desplegar WMS/WMTS > Mi_geoservicio.
+7. Comprobar que aparecen departamentos y municipios.
+   Esta comprobacion quedo registrada durante la practica.
+8. Agregar cada capa con doble clic.
+9. Desmarcar las capas originales y dejar visible una capa WMS.
+10. Clic derecho en la capa WMS > Zoom a la capa.
+11. Comprobar el mapa y repetir con la otra capa.
+
+Si se utiliza el Administrador de fuentes de datos, seleccionar
+la conexion, pulsar Conectar, elegir la capa y pulsar Anadir.
+
+La prueba visual final debe completarse y capturarse para el informe.
+
+============================================================
+13. CAPTURAS PARA EL INFORME
+============================================================
+
+Figura 1 - PowerShell:
+Resultados de SELECT version() y SELECT PostGIS_Version().
+
+Figura 2 - QGIS:
+Conexion Docker_geodatos con el mensaje verde de exito.
+Para repetirla: clic derecho en la conexion > Editar conexion
+> Probar conexion. Mantener la contrasena oculta.
+
+Figura 3 - QGIS, Administrador de BBDD:
+Docker_geodatos > public > departamentos > Info.
+
+Figura 4 - QGIS, Administrador de BBDD:
+Docker_geodatos > public > municipios > Info.
+
+Figura 5 - GeoServer en el navegador:
+Lista de departamentos y municipios en el almacen geodatos_postgis.
+Se consulta desde Capas > Agregar nuevo recurso > elegir el almacen.
+
+Figura 6 - GeoServer en el navegador:
+Lista de Capas con curso:departamentos y curso:municipios publicados.
+
+Figura 7 - GeoServer en el navegador:
+Mapa de departamentos abierto desde Previsualizacion de capas
+> OpenLayers, mostrando el estilo.
+
+Figura 8 - QGIS:
+Mi_geoservicio desplegado y una capa WMS dibujada en el mapa,
+con las capas originales desmarcadas.
+
+Poner una descripcion breve debajo de cada captura.
+Eliminar del informe las instrucciones para insertar las imagenes.
+
+============================================================
+14. ALCANCE Y USO EN OTRA SESION
+============================================================
+
+El servicio funciona SOLO EN TU COMPUTADORA con esta configuracion.
+localhost identifica el equipo desde el que se abre la direccion.
+Otra persona no puede usar tu servicio copiando ese mismo enlace
+en otro computador. No se habilito acceso por red ni por Internet.
+
+Para volver a trabajar:
+1. Abrir Docker Desktop.
+2. Abrir PowerShell y ejecutar:
+
+Set-Location "$env:USERPROFILE\curso-sig"
+docker compose up -d
+
+3. Abrir QGIS o GeoServer. No repetir las importaciones.
+
+Para detener los servicios al terminar, ejecutar:
+
+docker compose stop
+
+Para revisar un problema, usar:
+
+docker compose logs --tail 50 postgis
+docker compose logs --tail 50 geoserver
+
+No ejecutar docker compose down -v: elimina los volumenes del
+proyecto y puede borrar los datos y la configuracion guardada.
+
+============================================================
+FIN DE LA GUIA
+============================================================
